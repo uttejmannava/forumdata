@@ -1,0 +1,64 @@
+[project]
+name = "forum"
+version = "0.0.1"
+description = "AI-powered alternative data platform for trading and investment firms"
+requires-python = ">=3.12"
+dependencies = [
+    "forum-schemas",
+    "forum-pipeline",
+    "forum-agents",
+    "forum-browser",
+    "forum-sdk",
+    "forum-cli",
+    "forum-api",
+]
+
+[tool.uv.sources]
+forum-schemas = { workspace = true }
+forum-pipeline = { workspace = true }
+forum-agents = { workspace = true }
+forum-browser = { workspace = true }
+forum-sdk = { workspace = true }
+forum-cli = { workspace = true }
+forum-api = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9",
+    "mypy>=1.14",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25",
+]
+
+[tool.uv.workspace]
+members = [
+    "packages/*",
+    "apps/*",
+]
+exclude = [
+    "apps/web",
+    "apps/site",
+    "packages/sdk-typescript",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["forum_schemas", "forum_pipeline", "forum_agents", "forum_browser", "forum_cli"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true

@@ -16,8 +16,9 @@ packages/agents/   → LLM orchestrator + sub-agents + tool registry (Python)
 packages/pipeline/ → E-C-T-V-L-N runtime executed in ECS Fargate containers (Python)
 packages/browser/  → Playwright automation, anti-detection, proxy management (Python)
 packages/schemas/  → Shared Pydantic models used by API, agents, pipeline, SDKs
-packages/sdk-python/   → Python SDK (PyPI: forum-sdk) + CLI
+packages/sdk-python/   → Python SDK (PyPI: forum-sdk)
 packages/sdk-typescript/ → TypeScript SDK (npm: @forum/sdk)
+packages/cli/      → CLI tool (wraps sdk-python)
 infra/terraform/   → All IaC (VPC, ECS, MWAA, RDS, S3, IAM, Cognito)
 internal/          → Internal CLI (forum-internal), debug utilities, scripts
 dags/              → Jinja2 YAML DAG templates for MWAA Serverless
@@ -105,7 +106,7 @@ forum-internal agent heal --tenant acme --pipeline pip_cme_settlements --error-c
 
 - **Python:** Pydantic for all data models. Async where I/O bound. Type hints everywhere.
 - **Imports:** `packages/schemas/` is the single source of truth for shared types. API, agents, pipeline, and SDKs all import from it.
-- **Errors:** Use the error taxonomy in `packages/schemas/src/models/errors.py` (SOURCE_UNAVAILABLE, ACCESS_BLOCKED, SCHEMA_MISMATCH, etc.).
+- **Errors:** Use the error taxonomy in `packages/schemas/src/forum_schemas/models/errors.py` (SOURCE_UNAVAILABLE, ACCESS_BLOCKED, SCHEMA_MISMATCH, etc.).
 - **Tests:** Every package has its own `tests/` directory. Tests run via pytest (Python) or vitest/jest (TS). CI runs all in parallel via Turborepo.
 - **Docker images tagged with git SHA**, never `latest`. Task definitions reference specific image tags.
 - **Terraform:** Same modules for dev/staging/prod — only variable files differ. Never manual console changes.

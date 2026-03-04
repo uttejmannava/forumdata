@@ -1,8 +1,38 @@
-// CLAUDE
+# Claude
 .claude/settings.local.json
 
-// humanlayer
-humanlayer
+# Legacy
+humanlayer/
 
-// thoughts
-thoughts/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.turbo/
+
+# Environment
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+{
+  "name": "forum",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "apps/site",
+    "packages/sdk-typescript"
+  ],
+  "scripts": {
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "build": "turbo run build"
+  },
+  "devDependencies": {
+    "turbo": "^2"
+  }
+}
