@@ -122,8 +122,10 @@ Reliable extraction requires surviving modern anti-bot systems (Cloudflare, Akam
 
 **Countermeasures:**
 - **Proxy rotation** with residential + datacenter mix via Bright Data / SmartProxy, geo-targeted per-pipeline
-- **TLS fingerprint spoofing** — headless Chromium has a trivially identifiable TLS client hello. Ship multiple browser builds: standard Chromium (for permissive sources), patched Chromium with realistic TLS fingerprint, and Camoufox (Firefox fork built for automation stealth). Rotate between them. The TLS fingerprint should match the claimed User-Agent (e.g., a Firefox TLS fingerprint paired with a Firefox UA string)
-- **Protocol-level consistency** — HTTP/2 settings, header ordering, and accept-encoding values must match the claimed browser
+- **TLS fingerprint spoofing** — headless Chromium has a trivially identifiable TLS client hello. Two strategies depending on whether a browser is involved:
+  - **Browser-based (Basic/Standard/Aggressive stealth):** Ship multiple browser builds: standard Chromium (for permissive sources), patched Chromium with realistic TLS fingerprint, and Camoufox (Firefox fork built for automation stealth). Rotate between them. The TLS fingerprint should match the claimed User-Agent (e.g., a Firefox TLS fingerprint paired with a Firefox UA string)
+  - **HTTP-only (None stealth, API Discovery, Monitor Pipelines):** Use `curl_cffi` — a Python binding for `curl-impersonate` that replays exact JA3/JA4 TLS handshakes matching real browsers (Chrome, Firefox, Safari, Edge — including version-specific profiles like `chrome126`, `safari17_0`) at the C library level. This gives non-browser requests browser-grade TLS fingerprints at zero overhead. Supports HTTP/2 and HTTP/3 (QUIC). Replaces `httpx`/`requests` for all non-browser HTTP calls — those libraries produce trivially identifiable Python TLS fingerprints
+- **Protocol-level consistency** — HTTP/2 and HTTP/3 settings, header ordering, and accept-encoding values must match the claimed browser. `curl_cffi` handles this automatically for HTTP-only requests; browser builds handle it for browser-based requests
 
 #### Layer 2 — Browser-Level Fingerprinting
 
@@ -163,8 +165,8 @@ Not every source needs the same level of anti-detection. A government CSV downlo
 
 | Level | Countermeasures Active | Use When |
 |-------|----------------------|----------|
-| **None** | Direct HTTP request, no browser | Public APIs, direct file downloads, permissive `robots.txt` |
-| **Basic** | Headless browser with default settings, datacenter proxy | Government portals, exchange sites with no anti-bot |
+| **None** | `curl_cffi` HTTP with browser-grade TLS fingerprint (JA3/JA4 impersonation), HTTP/3 support, stealthy headers, no browser | Public APIs, direct file downloads, permissive `robots.txt`, API Discovery mode, Monitor Pipelines |
+| **Basic** | Headless browser with default settings, datacenter proxy, resource blocking (fonts/images/stylesheets stripped) | Government portals, exchange sites with no anti-bot |
 | **Standard** | TLS spoofing, device profiles, basic behavioral patterns, residential proxy | Sites with standard Cloudflare/Akamai protection |
 | **Aggressive** | All 4 layers active: TLS spoofing, cohort profiles, full behavioral simulation, session warming, persistent profiles, residential proxy with geo-match | Sites with advanced anti-bot (DataDome, PerimeterX, custom solutions) |
 
@@ -184,6 +186,14 @@ Instead of only reacting to hard failures (403, CAPTCHA page), actively detect *
 | **Rate limit warning** | 429 status or custom rate-limit headers | Back off, increase jitter, spread across proxy pool |
 
 Detection signals are logged per-run and feed back into the adaptive stealth calibration. If a source accumulates detection signals over time, its default stealth level is permanently escalated.
+
+#### Browser Performance Optimizations
+
+Two low-cost optimizations that reduce per-page load time, memory, and bandwidth (NAT Gateway savings):
+
+**Resource blocking:** For extraction tasks, block resources that don't affect data: fonts, images, media, stylesheets, beacons, tracking scripts. Configurable per-pipeline (some sources require CSS for layout-dependent extraction). Typical savings: ~25% faster page loads, significant bandwidth reduction for image-heavy pages. Implemented at the Playwright network interception layer, not via ad-hoc request filtering. Additionally, a configurable `blocked_domains` set blocks entire domains at the browser level (ad networks, analytics providers, anti-bot tracking scripts) — subdomains auto-matched.
+
+**Tab pooling:** For navigation modes that visit multiple pages (Paginated List, List+Detail, Multi-Step), reuse a single browser instance with a rotating pool of tabs rather than launching a new browser per page. A `max_tabs` parameter controls concurrency. Benefits: avoids repeated browser cold-start cost (~2-4s per launch), reduces memory footprint in ECS containers (one Chromium process instead of N), maintains a consistent fingerprint and session state across pages. The tab pool manages lifecycle: opens new tabs up to `max_tabs`, reuses completed tabs, and rotates them to prevent memory leaks. Each tab gets its own BrowserContext for cookie isolation when needed, or shares a context when session continuity is desired (e.g., authenticated sessions).
 
 #### Compliance-Aware Stealth Selection
 
@@ -235,9 +245,12 @@ Each agent has access to a shared tool registry — callable functions that sepa
 
 - **Browser actions:** navigate, click, type, scroll, screenshot
 - **DOM analysis:** get accessibility tree, extract text, find elements
+- **Element resolution:** find_by_text (locate elements by visible text content, with partial/case-insensitive matching), find_by_regex (locate elements whose text matches a regex pattern), find_similar (given a reference element, find all structurally similar elements on the page using DOM similarity scoring — useful for "find one row, get all rows"), generate_selector (auto-generate a CSS or XPath selector from any located element), adaptive_match (relocate an element using stored fingerprint when its selector breaks — see §5.6)
 - **Data tools:** parse JSON/CSV/PDF, validate schema, detect PII
 - **Infrastructure tools:** store to S3, write DAG, trigger pipeline
 - **Compliance tools:** check robots.txt, verify TOS, check source blacklist
+
+The element resolution tools give agents multiple strategies for locating elements. The LLM reasons about *which* element to find (semantic understanding), then calls a deterministic tool to *locate* it. This separation means: `find_by_text` handles the common case where class names change but content doesn't; `find_similar` handles the common case where you identify one list item and need all of them; `generate_selector` produces deterministic selectors from any found element (the LLM doesn't need to write CSS/XPath). These tools are also available at runtime in the extraction code — not just during agent setup (see §5.6 Tiered Element Resolution).
 
 ### 5.4 Navigation Modes (Tiered Complexity)
 
@@ -286,6 +299,42 @@ POST /v1/pipelines/{id}/run
 ```
 
 This enables watchlist-style workflows where the same pipeline logic runs across many instruments without duplicating pipeline definitions.
+
+### 5.6 Tiered Element Resolution
+
+Locating elements on a page is the most failure-prone step in extraction. Selectors break when sites change. Forum uses a **resolution cascade** that starts with the fastest/cheapest method and escalates to the most powerful, combining deterministic techniques with LLM-based semantic understanding:
+
+```
+Tier 1 — Direct Selector (CSS/XPath)          ~0.1ms, free
+  ↓ fails
+Tier 2 — Adaptive Fingerprint Match            ~2-5ms, free
+  ↓ fails
+Tier 3 — Content & Similarity Search           ~5-15ms, free
+  ↓ fails
+Tier 4 — LLM Semantic Relocation              ~2-5s, $0.02-0.10
+```
+
+**Tier 1 — Direct Selector:** The generated CSS/XPath selector is tried first. This is the common case — it succeeds on ~85% of runs. No overhead.
+
+**Tier 2 — Adaptive Fingerprint Match:** When the direct selector fails or returns unexpected results (wrong tag, wrong attributes, empty), the system loads a stored **element fingerprint** and scores all elements on the current page for structural similarity. The fingerprint captures: tag name, text content, attribute names/values, sibling tag names, ancestor path (DOM path), and parent tag/attributes. Matching uses multi-dimensional similarity scoring — not exact comparison — so it handles class renames, attribute shuffles, minor DOM restructuring, and wrapper element insertion/removal.
+
+Fingerprints are saved during pipeline setup (when the agent first identifies target elements) and updated after every successful extraction. Storage: Redis (tenant-scoped, keyed by `{tenant_id}:{pipeline_id}:{element_identifier}`), with local SQLite fallback when `FORUM_ENV=local`. The fingerprint store is pluggable via a storage adapter interface.
+
+**Tier 3 — Content & Similarity Search:** When even the fingerprint doesn't match (more significant structural change), try content-based and structural similarity strategies:
+
+- `find_by_text` — locate the element by its visible text content (works when markup changes but content doesn't; e.g., settlement prices still say "72.45" even if the surrounding HTML is different)
+- `find_by_regex` — locate elements matching a value pattern (e.g., a price regex `[\d,]+\.\d{2}` finds price cells regardless of structure)
+- `find_similar` — given the fingerprint's structural template, find all elements sharing the same DOM depth, tag lineage, and attribute profile at a configurable similarity threshold. This is especially powerful for table rows and list items: if the table structure changed, find one row that matches, then `find_similar` finds the rest
+
+These methods can be combined: `find_by_text` locates one known value → `find_similar` from that element's parent finds all sibling rows → `generate_selector` produces a new CSS selector for the resolved elements. The new selector is saved as the updated extraction path.
+
+**Tier 4 — LLM Semantic Relocation:** When deterministic methods all fail (the page was fundamentally restructured — data moved from a `<table>` to a `<div class="grid">`, content changed, element relocated to a different page section), invoke the Extraction Agent to re-analyze the page. The LLM receives: the current page HTML/accessibility tree, the target schema (what data we're looking for), the last known good extraction (for context), and the failure details from Tiers 1-3. This is the existing self-healing flow (§12.2) — Tier 4 just ensures it only fires when cheaper methods are exhausted.
+
+**How tiers interact with the agent's semantic understanding:** Tiers 2-3 are structural — they match by DOM shape and text content, not meaning. They handle ~70% of breakages (the common case: class renames, minor layout tweaks, wrapper changes). But when a site moves settlement prices from a `<table>` to a completely different `<div>` layout, structural methods can't bridge the semantic gap. That's where Tier 4's LLM reasoning adds value — it understands that "this grid of numbers labeled 'Settlement' is the same data as the old table." The tiers are complementary: fast/deterministic for common changes, LLM for rare structural overhauls.
+
+**Cost impact:** In production, Tier 1 handles ~85% of runs, Tier 2 handles ~10%, Tier 3 handles ~3%, Tier 4 handles ~2%. Self-healing LLM costs drop ~90% compared to going straight to LLM regeneration on any selector failure. Expected self-healing cost per pipeline drops from ~$0.15-0.20/event to ~$0.01-0.02/event on average (since most "events" are resolved at Tier 2-3 for free).
+
+**Source grounding integration:** The resolution tier used to find each element is recorded in the source grounding metadata (§12.1 Layer 3a). The `extraction_method` field now tracks: `direct_selector`, `fingerprint_match`, `content_match`, `similarity_match`, or `llm_relocation`. Higher tiers produce lower confidence scores — a value found via `direct_selector` scores 0.95+, while `llm_relocation` scores 0.7-0.85 (still good, but flagged for review).
 
 ---
 
@@ -944,7 +993,7 @@ Per-field confidence scoring based on:
 - **Selector specificity** — a unique `#settlement-price` ID scores higher than a positional `div:nth-child(3) > span`
 - **Structural match** — does the extracted value's type, format, and position match the schema expectation? A price field returning a date string scores 0.
 - **Historical consistency** — is this value within the expected range based on the rolling window of prior extractions? A settlement price that's 100x the previous value scores low.
-- **Extraction method** — deterministic selector scores higher than regex fallback, which scores higher than LLM-inferred extraction.
+- **Extraction method** — scored by resolution tier (§5.6): `direct_selector` (0.95+) > `fingerprint_match` (0.85-0.95) > `content_match` / `similarity_match` (0.75-0.85) > `llm_relocation` (0.70-0.85). Deterministic methods score higher than LLM-inferred extraction.
 
 Confidence levels: **High** (≥0.9) → load normally. **Medium** (0.6-0.9) → load but flag in dashboard + include in run warnings. **Low** (<0.6) → configurable: block (don't load), warn, or log. For trading pipelines, the default for low-confidence fields should be block — it's better to miss data than to load wrong data into a model.
 
@@ -994,10 +1043,19 @@ Rules are evaluated after extraction, before loading. Violations can be configur
 
 ### 12.2 Self-Healing Flow
 
-1. **Change Detected** — structural diff exceeds threshold, extraction code fails, or data quality check fails
-2. **Code Regeneration** — Extraction Agent re-analyzes changed page, generates new extraction code targeting same schema
-3. **Validation** — Compare new extraction output against last known good. Confidence score. Schema compatibility check.
-4. **Promotion / Escalation** — High confidence → auto-promote. Medium → promote but alert. Low → pause, require human intervention.
+Self-healing uses the Tiered Element Resolution cascade (§5.6) to resolve breakages at the cheapest effective level before escalating to LLM-based code regeneration.
+
+1. **Change Detected** — structural diff exceeds threshold, extraction code fails, selector returns unexpected results, or data quality check fails
+2. **Tiered Resolution Attempt** — the pipeline runner runs the resolution cascade (§5.6) inline during extraction:
+   - **Tier 1** (direct selector) already failed — that's how we got here
+   - **Tier 2** (adaptive fingerprint match) — load stored element fingerprint, score all page elements for structural similarity. If a high-confidence match is found (score ≥0.8), use it, update the selector in the extraction code, save the new fingerprint, and continue the run. Log as `SELF_HEALED_FINGERPRINT`.
+   - **Tier 3** (content & similarity search) — try `find_by_text` with known values from the last successful extraction, `find_by_regex` with value patterns from the schema (e.g., price format), and `find_similar` from any partially matched elements. If successful, generate a new selector via `generate_selector`, update extraction code, and continue. Log as `SELF_HEALED_CONTENT`.
+   - **Tier 2-3 successes** create a new code version (immutable, as always) with `author: "system:auto-resolve"` and auto-promote it. No LLM cost incurred.
+3. **LLM Code Regeneration (Tier 4)** — if Tiers 2-3 fail, trigger the Extraction Agent to re-analyze the changed page and generate new extraction code targeting the same schema. The agent receives the failure context from Tiers 2-3 (what was tried, why it failed) to focus its analysis.
+4. **Validation** — compare new extraction output (from any tier) against last known good. Confidence score. Schema compatibility check. Plausibility checks.
+5. **Promotion / Escalation** — Tier 2-3 resolutions with high confidence → auto-promote silently. Tier 4 (LLM) with high confidence → auto-promote but notify. Any tier with medium confidence → promote but alert. Low confidence → pause pipeline, require human intervention.
+
+**Expected resolution distribution:** ~70% of breakages resolved at Tier 2 (fingerprint match handles class renames, attribute changes, wrapper insertion). ~15% at Tier 3 (content/similarity search handles moderate restructuring). ~15% at Tier 4 (LLM handles major page redesigns). This reduces self-healing LLM costs by ~85% compared to always invoking the Extraction Agent.
 
 ### 12.3 Error Taxonomy
 
@@ -1257,9 +1315,9 @@ The build plan follows a **free/basic-tier-first strategy**: ship the core produ
 
 | Phase | Weeks | Deliverables |
 |-------|-------|-------------|
-| **0 — Core Agent** | 1-6 | Extraction agent as standalone Python service. Input: URL + description. Output: extraction code + sample data. No UI, no multi-tenancy. Implement tiered navigation modes (single page, paginated list, list+detail, API discovery) — test deterministic modes without LLM. Agentic mode for complex sources. **Browser identity & anti-detection**: implement 4-layer stealth system (network, fingerprint, behavioral, session), adaptive stealth calibration (auto-detect minimum required stealth level per source). Test against 20+ diverse websites including trading-specific sources (CME, SEC EDGAR, FRED, government portals) and anti-bot-protected sites (Cloudflare, DataDome). |
-| **1 — Platform MVP (Free & Basic Tier)** | 7-16 | REST API (FastAPI), PostgreSQL, S3, basic auth (API keys), pipeline CRUD with navigation mode selection, **pipeline variables & URL templates**, MWAA Serverless orchestration (YAML DAGs → ECS tasks), S3/webhook delivery, **adhoc extraction endpoint** (`POST /v1/extract`), **monitor pipelines** (change detection as first-class pipeline type), Python SDK v0.1, **CLI tool**, free preview runs (no credit cost for setup/testing), formal error taxonomy in API responses (including `PLAUSIBILITY_BLOCKED`, `DETECTION_BLOCKED`, `LOW_CONFIDENCE`), basic data explorer in dashboard, single-tenant deployment. LLM Gateway with semantic caching. Schema registry (versioning, breaking change detection). **E-C-T-V-L-N pipeline**: cleansing stage between extract and transform (boilerplate stripping, footnote extraction, whitespace normalization). **Intra-tenant response caching** (Level 1 proxy cache, Redis + S3). **Source grounding metadata** (per-field confidence scores, selector provenance). **Plausibility checks** (row count stability, distribution shift, cardinality change). **Detection signal monitoring** (throttle detection, soft block detection, auto stealth escalation). |
-| **2 — UI, Self-Healing & Growth Features** | 17-24 | React web UI (pipeline builder, monitoring dashboard, data preview/explorer, one-click CSV/JSON export), change detection agent, self-healing code regeneration with validation gates, data quality monitoring (system checks + **user-defined validation rules**), **conditional notifications** (field change, threshold, percentage, keyword), notification channels (email, Slack, webhooks, WebSocket), basic compliance engine (robots.txt, source blacklist, rate limiting, **compliance-aware stealth selection** — llms.txt and robots.txt feed into stealth level), **tags/folders** for pipeline organization, **shared schema templates** (workspace-level reusable schemas), async preview with email notification when ready, **agent-based formatting** (LLM-assisted transform for ambiguous formats, compiled to deterministic rules), **cross-tenant structural cache** (Level 2 — shared extraction templates, no content sharing). Multi-tenancy foundation: schema-per-tenant, S3 prefix-per-tenant, per-workflow IAM via MWAA Serverless. Credit system, billing & metering. Cognito auth. Terraform IaC for environment management. **Persistent browser profiles** (encrypted, tenant-scoped, for session continuity across runs). |
+| **0 — Core Agent** | 1-6 | Extraction agent as standalone Python service. Input: URL + description. Output: extraction code + sample data. No UI, no multi-tenancy. Implement tiered navigation modes (single page, paginated list, list+detail, API discovery) — test deterministic modes without LLM. Agentic mode for complex sources. **Browser identity & anti-detection**: implement 4-layer stealth system (network, fingerprint, behavioral, session), adaptive stealth calibration (auto-detect minimum required stealth level per source). **`curl_cffi` integration** for non-browser HTTP requests (API Discovery, Monitor modes) with browser-grade TLS fingerprints (JA3/JA4), HTTP/3 support. **Browser performance**: resource blocking (fonts/images/stylesheets/tracking domains), tab pooling for multi-page navigation modes. **Tiered element resolution**: implement adaptive fingerprint matching (save/match element fingerprints in SQLite locally), `find_by_text`/`find_by_regex`/`find_similar` tools, `generate_selector` for auto CSS/XPath generation, resolution cascade (selector → fingerprint → content → LLM). **Element resolution tools** in agent tool registry so agents can locate elements via text content, regex patterns, and structural similarity — not just CSS/XPath. Test against 20+ diverse websites including trading-specific sources (CME, SEC EDGAR, FRED, government portals) and anti-bot-protected sites (Cloudflare, DataDome). |
+| **1 — Platform MVP (Free & Basic Tier)** | 7-16 | REST API (FastAPI), PostgreSQL, S3, basic auth (API keys), pipeline CRUD with navigation mode selection, **pipeline variables & URL templates**, MWAA Serverless orchestration (YAML DAGs → ECS tasks), S3/webhook delivery, **adhoc extraction endpoint** (`POST /v1/extract`), **monitor pipelines** (change detection as first-class pipeline type), Python SDK v0.1, **CLI tool**, free preview runs (no credit cost for setup/testing), formal error taxonomy in API responses (including `PLAUSIBILITY_BLOCKED`, `DETECTION_BLOCKED`, `LOW_CONFIDENCE`), basic data explorer in dashboard, single-tenant deployment. LLM Gateway with semantic caching. Schema registry (versioning, breaking change detection). **E-C-T-V-L-N pipeline**: cleansing stage between extract and transform (boilerplate stripping, footnote extraction, whitespace normalization). **Intra-tenant response caching** (Level 1 proxy cache, Redis + S3). **Source grounding metadata** (per-field confidence scores, selector provenance, extraction method tier tracking). **Plausibility checks** (row count stability, distribution shift, cardinality change). **Detection signal monitoring** (throttle detection, soft block detection, auto stealth escalation). **Element fingerprint storage in Redis** (tenant-scoped, upgrade from Phase 0 local SQLite, pluggable storage adapter interface). |
+| **2 — UI, Self-Healing & Growth Features** | 17-24 | React web UI (pipeline builder, monitoring dashboard, data preview/explorer, one-click CSV/JSON export), change detection agent, **tiered self-healing** (resolution cascade: fingerprint match → content/similarity search → LLM regeneration, with auto-promote for Tier 2-3 resolutions), data quality monitoring (system checks + **user-defined validation rules**), **conditional notifications** (field change, threshold, percentage, keyword), notification channels (email, Slack, webhooks, WebSocket), basic compliance engine (robots.txt, source blacklist, rate limiting, **compliance-aware stealth selection** — llms.txt and robots.txt feed into stealth level), **tags/folders** for pipeline organization, **shared schema templates** (workspace-level reusable schemas), async preview with email notification when ready, **agent-based formatting** (LLM-assisted transform for ambiguous formats, compiled to deterministic rules), **cross-tenant structural cache** (Level 2 — shared extraction templates, no content sharing). Multi-tenancy foundation: schema-per-tenant, S3 prefix-per-tenant, per-workflow IAM via MWAA Serverless. Credit system, billing & metering. Cognito auth. Terraform IaC for environment management. **Persistent browser profiles** (encrypted, tenant-scoped, for session continuity across runs). |
 | **3 — Enterprise & Compliance** | 25-34 | Full compliance engine (PII detection, TOS scanner, CAPTCHA blocking, compliance officer role, approval workflows, audit trail with S3 Object Lock), **downloadable compliance reports** (PDF/CSV), compliance hints in pipeline creation UI, SSO/SAML, RBAC (Admin/Analyst/Compliance Officer/Viewer), team workspaces (sub-organizational units within tenants), MWAA Provisioned for Enterprise Dedicated (Python DAGs, full operator access, Airflow UI, cross-pipeline dependencies via ExternalTaskSensor), dedicated VPC provisioning via Terraform, backfill engine (date-range iteration, resumable crawls), **code artifact visibility** (engineers can view and directly edit agent-generated extraction/transform code), IP address logging per run, **Trust Center** (public security page). **Cohort-based device profile library** (production-grade fingerprint rotation). |
 | **4 — Scale & Ecosystem** | 35+ | Chrome extension (visual point-and-click element selection), multi-page pipeline composition (cross-pipeline dependencies and joins), TypeScript SDK, **MCP Server** (AI assistant integration), Google Sheets integration, GitHub Actions integration, email as data delivery channel, **LLM-as-a-judge** data quality checks, website crawling endpoint (`POST /v1/crawl` for LLM-ready markdown), SOC 2 Type II certification, DR automation (cross-region replication), performance optimization, trading-specific pipeline template library. |
 
@@ -1279,8 +1337,10 @@ Forum's code-generation architecture produces real, auditable extraction code �
 | Layer | Technology |
 |-------|-----------|
 | Agent Framework | LangGraph or custom Python state machine |
-| Browser Automation | Playwright (multi-browser: Chromium, patched Chromium w/ TLS spoofing, Camoufox/Firefox) |
-| Anti-Detection | 4-layer stealth system (network, fingerprint, behavioral, session), adaptive calibration, detection signal monitoring, cohort-based device profiles |
+| Browser Automation | Playwright (multi-browser: Chromium, patched Chromium w/ TLS spoofing, Camoufox/Firefox), tab pooling for multi-page sessions |
+| HTTP Client (non-browser) | `curl_cffi` (JA3/JA4 TLS fingerprint impersonation, HTTP/2, HTTP/3/QUIC) — replaces httpx/requests for all non-browser HTTP calls |
+| Anti-Detection | 4-layer stealth system (network, fingerprint, behavioral, session), adaptive calibration, detection signal monitoring, cohort-based device profiles, resource blocking (fonts/images/stylesheets/tracking domains) |
+| Element Resolution | Tiered cascade: direct selector → adaptive fingerprint match → content/similarity search → LLM semantic relocation. Fingerprints stored in Redis (tenant-scoped) |
 | LLMs | Claude Sonnet 4.5 (code gen), Haiku 4.5 (DOM analysis), Opus 4.5 (complex reasoning) |
 | Backend API | FastAPI (Python) |
 | Frontend | React + TypeScript |

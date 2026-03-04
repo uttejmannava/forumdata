@@ -171,6 +171,13 @@ packages/agents/
 │   ├── tools/                 # Tool registry (deterministic functions agents can call)
 │   │   ├── browser.py         # navigate, click, type, scroll, screenshot
 │   │   ├── dom.py             # get accessibility tree, extract text, find elements
+│   │   ├── element.py         # Element resolution tools (wraps packages/browser/resolution/)
+│   │   │                      #   find_by_text: locate elements by visible text (partial, case options)
+│   │   │                      #   find_by_regex: locate elements by text pattern matching
+│   │   │                      #   find_similar: find structurally similar elements (same template)
+│   │   │                      #   adaptive_match: relocate element via stored fingerprint
+│   │   │                      #   generate_selector: auto-produce CSS/XPath from any found element
+│   │   │                      #   save_fingerprint: persist element fingerprint for future matching
 │   │   ├── data.py            # parse JSON/CSV/PDF, validate schema, detect PII
 │   │   ├── infra.py           # store to S3, write DAG, trigger pipeline
 │   │   └── compliance.py      # check robots.txt, verify TOS, check source blacklist
@@ -191,7 +198,9 @@ packages/agents/
 
 **Not deployed as a service.** This code is imported by:
 1. `apps/api/` — when a user creates a pipeline (the API triggers agent pipeline setup)
-2. `packages/pipeline/` — when self-healing is triggered during execution
+2. `packages/pipeline/` — when self-healing is triggered during execution (Tier 4 of the resolution cascade)
+
+The `tools/element.py` module wraps `packages/browser/resolution/` and exposes element resolution capabilities (find_by_text, find_similar, adaptive fingerprint matching, selector auto-generation) as callable tools that agents use during setup. The same resolution engine is also called directly by `packages/pipeline/` at runtime when selectors fail — agents are only invoked at Tier 4 (LLM semantic relocation) after deterministic methods are exhausted.
 
 ### 2.5 `packages/pipeline/` — EC-T-V-L-N Pipeline Runtime
 
@@ -204,6 +213,8 @@ packages/pipeline/
 │   ├── context.py             # Per-run context (tenant, pipeline, credentials, schema, code version)
 │   ├── stages/
 │   │   ├── extract.py         # Pulls agent-generated code from S3, executes via Playwright
+│   │   │                      #   Integrates resolution cascade (packages/browser/resolution/)
+│   │   │                      #   On selector failure: fingerprint → content → LLM escalation
 │   │   ├── cleanse.py         # NEW: Noise removal between extraction and transformation
 │   │   │                      #   Strip HTML boilerplate, nav elements, ads, promo content
 │   │   │                      #   Remove header/footer rows from data tables
@@ -268,6 +279,8 @@ MWAA Serverless triggers EcsRunTaskOperator
   → Stage pulls credentials from Secrets Manager (tenant-scoped)
   → Stage executes the E-C-T-V-L-N sequence:
       Extract  → run agent-generated Playwright code, capture raw data + source grounding metadata
+                  On selector failure: tiered resolution cascade (fingerprint → content → LLM)
+                  Resolution tier recorded in source grounding metadata per field
       Cleanse  → strip boilerplate, extract footnote qualifiers, normalize whitespace, dedup
       Transform → apply pre-built transforms + custom transforms + agent-based formatting rules
       Validate → system checks + user rules + confidence scoring + plausibility checks
@@ -300,7 +313,7 @@ When `FORUM_ENV=local`, the context module swaps AWS dependencies for local equi
 
 ### 2.6 `packages/browser/` — Browser Automation & Anti-Detection
 
-Playwright wrapper with 4-layer anti-detection, proxy management, device profiles, response caching, and trace capture. Shared by both `packages/agents/` (during setup) and `packages/pipeline/` (during extraction). This is Forum's stealth infrastructure — the layer that ensures extraction survives modern anti-bot systems.
+Playwright wrapper with 4-layer anti-detection, proxy management, device profiles, response caching, tiered element resolution, and trace capture. Shared by both `packages/agents/` (during setup) and `packages/pipeline/` (during extraction). This is Forum's stealth and extraction resilience infrastructure.
 
 ```
 packages/browser/
@@ -310,6 +323,14 @@ packages/browser/
 │   │                          #   - Standard Chromium (permissive sources)
 │   │                          #   - Patched Chromium (realistic TLS fingerprint)
 │   │                          #   - Camoufox / Firefox (stealth-optimized fork)
+│   │                          #   Tab pooling: max_tabs parameter for multi-page sessions
+│   │                          #   Resource blocking: configurable font/image/stylesheet/domain filtering
+│   ├── http.py                # curl_cffi HTTP client for non-browser requests
+│   │                          #   JA3/JA4 TLS fingerprint impersonation (Chrome, Firefox, Safari, Edge)
+│   │                          #   HTTP/2 and HTTP/3 (QUIC) support
+│   │                          #   Version-specific profiles (chrome126, safari17_0, etc.)
+│   │                          #   Replaces httpx/requests for stealth level "None"
+│   │                          #   Used by: API Discovery mode, Monitor Pipelines, health checks
 │   ├── proxy.py               # Proxy rotation (Bright Data / SmartProxy)
 │   │                          #   Geo-location selection per-pipeline
 │   │                          #   Datacenter + residential pool management
@@ -341,11 +362,41 @@ packages/browser/
 │   │                          #   Detect challenge pages, throttling, soft blocks, honeypots
 │   │                          #   Log signals per-run, feed back into calibrator
 │   │                          #   Auto-escalate stealth level on detection
+│   ├── resolution/            # Tiered element resolution cascade (see bible.md §5.6)
+│   │   ├── cascade.py         # Resolution orchestrator: selector → fingerprint → content → LLM
+│   │   │                      #   Called by pipeline runner when selectors fail at runtime
+│   │   │                      #   Called by agents during setup for robust element location
+│   │   │                      #   Returns resolved element + resolution tier metadata
+│   │   ├── fingerprints.py    # Adaptive element fingerprinting (save/match/score)
+│   │   │                      #   Stores: tag, text, attributes, siblings, ancestor path
+│   │   │                      #   Multi-dimensional similarity scoring for relocation
+│   │   │                      #   ~2-5ms per match, handles class renames / attribute changes
+│   │   ├── similarity.py      # Structural similarity engine
+│   │   │                      #   find_similar: given reference element, find all with same template
+│   │   │                      #   find_by_text: locate by visible text content (partial, case options)
+│   │   │                      #   find_by_regex: locate by text pattern matching
+│   │   │                      #   generate_selector: auto-produce CSS/XPath from any found element
+│   │   └── storage.py         # Pluggable fingerprint storage adapter
+│   │                          #   Default: Redis (tenant-scoped keys: tenant:pipeline:element_id)
+│   │                          #   Local dev: SQLite (FORUM_ENV=local)
+│   │                          #   Interface: save(element, identifier), retrieve(identifier)
 │   ├── cache.py               # Response caching layer
 │   │                          #   Level 1: intra-tenant (tenant:url:region:time_bucket)
 │   │                          #   Redis hot cache, S3 cold storage
 │   │                          #   Tenant-scoped, encrypted at rest
 │   ├── network.py             # Network interception, XHR/fetch sniffing (for API discovery)
+│   ├── resource_filter.py     # Resource blocking configuration
+│   │                          #   Block fonts, images, media, stylesheets, beacons by type
+│   │                          #   Block specific domains (ad networks, analytics, anti-bot tracking)
+│   │                          #   Subdomain auto-matching on blocked domains
+│   │                          #   Configurable per-pipeline (some sources need CSS for layout)
+│   │                          #   ~25% faster page loads, significant bandwidth savings
+│   ├── tab_pool.py            # Rotating tab pool for multi-page sessions
+│   │                          #   Reuses single browser instance with configurable max_tabs
+│   │                          #   Avoids cold-start cost (~2-4s per browser launch)
+│   │                          #   Manages tab lifecycle: open, reuse, rotate to prevent memory leaks
+│   │                          #   Shared or isolated BrowserContexts per tab (configurable)
+│   │                          #   Used by: Paginated List, List+Detail, Multi-Step nav modes
 │   ├── tracing.py             # Playwright trace capture (screenshots, DOM snapshots, network log)
 │   └── utils.py               # Wait helpers, retry logic, element interaction patterns
 ├── profiles/                  # Device profile library (JSON, checked into repo)
@@ -361,8 +412,8 @@ packages/browser/
 
 | Level | Active Components | Typical Sources |
 |-------|------------------|-----------------|
-| None | Direct HTTP (no browser) | Public APIs, direct file downloads |
-| Basic | Headless browser, datacenter proxy | Government portals, basic exchange sites |
+| None | `curl_cffi` HTTP with JA3/JA4 TLS impersonation, HTTP/3, stealthy headers (no browser) | Public APIs, direct file downloads, API Discovery, Monitor Pipelines |
+| Basic | Headless browser, datacenter proxy, resource blocking (fonts/images/stylesheets stripped), tab pooling | Government portals, basic exchange sites |
 | Standard | + TLS spoofing, device profiles, basic behavioral patterns, residential proxy | Cloudflare/Akamai protected sites |
 | Aggressive | + Full behavioral simulation, session warming, persistent profiles, referrer chains | DataDome, PerimeterX, custom anti-bot |
 
