@@ -1,23 +1,23 @@
 ---
-description: Debug issues by investigating logs, database state, and git history
+description: Debug issues by investigating API logs, pipeline runs, agent setup, and git history
 ---
 
 # Debug
 
-You are tasked with helping debug issues during manual testing or implementation. This command allows you to investigate problems by examining logs, database state, and git history without editing files. Think of this as a way to bootstrap a debugging session without using the primary window's context.
+You are tasked with helping debug issues in the Forum platform. This command allows you to investigate problems across the API, pipeline stages, agent setup, and browser automation without editing files.
 
 ## Initial Response
 
-When invoked WITH a plan/ticket file:
+When invoked WITH context (a file path or description):
 ```
-I'll help debug issues with [file name]. Let me understand the current state.
+I'll help debug issues with [context]. Let me understand the current state.
 
 What specific problem are you encountering?
 - What were you trying to test/implement?
 - What went wrong?
 - Any error messages?
 
-I'll investigate the logs, database, and git state to help figure out what's happening.
+I'll investigate logs, code, and git state to help figure out what's happening.
 ```
 
 When invoked WITHOUT parameters:
@@ -25,35 +25,28 @@ When invoked WITHOUT parameters:
 I'll help debug your current issue.
 
 Please describe what's going wrong:
-- What are you working on?
+- Which component is affected? (API, pipeline, agents, dashboard)
 - What specific problem occurred?
 - When did it last work?
 
-I can investigate logs, database state, and recent changes to help identify the issue.
+I can investigate logs, code state, and recent changes to help identify the issue.
 ```
 
-## Environment Information
+## Forum Components
 
-You have access to these key locations and tools:
+| Component | Directory | Technology | Local Command |
+|-----------|-----------|------------|---------------|
+| API | `apps/api/` | FastAPI, SQLAlchemy, Alembic | `cd apps/api && FORUM_ENV=local uvicorn src.main:app --reload` |
+| Dashboard | `apps/web/` | React, TypeScript, Vite | `cd apps/web && npm run dev` |
+| Pipeline Runner | `packages/pipeline/` | Python, Playwright | `cd packages/pipeline && FORUM_ENV=local TENANT_ID=acme PIPELINE_ID=pip_cme STAGE=extract python -m pipeline.runner` |
+| Agent Orchestrator | `packages/agents/` | LangGraph, Playwright | `cd packages/agents && FORUM_ENV=local python -m agents.orchestrator --url "URL" --description "DESC"` |
+| Browser Automation | `packages/browser/` | Playwright, anti-detection | Used by agents and pipeline |
+| Schemas | `packages/schemas/` | Pydantic models | Shared types for all Python packages |
+| SDKs | `packages/sdk-python/`, `packages/sdk-typescript/` | httpx, fetch | Auto-generated from OpenAPI |
 
-**Logs** (automatically created by `make daemon` and `make wui`):
-- MCP logs: `~/.humanlayer/logs/mcp-claude-approvals-*.log`
-- Combined WUI/Daemon logs: `~/.humanlayer/logs/wui-${BRANCH_NAME}/codelayer.log`
-- First line shows: `[timestamp] starting [service] in [directory]`
+**Local infrastructure**: `cd internal/debug && docker-compose up -d` (Postgres, Redis, LocalStack)
 
-**Database**:
-- Location: `~/.humanlayer/daemon-{BRANCH_NAME}.db`
-- SQLite database with sessions, events, approvals, etc.
-- Can query directly with `sqlite3`
-
-**Git State**:
-- Check current branch, recent commits, uncommitted changes
-- Similar to how `commit` and `describe_pr` commands work
-
-**Service Status**:
-- Check if daemon is running: `ps aux | grep hld`
-- Check if WUI is running: `ps aux | grep wui`
-- Socket exists: `~/.humanlayer/daemon.sock`
+**When `FORUM_ENV=local`**: S3 → local filesystem, Secrets Manager → .env file, RDS → local Postgres
 
 ## Process Steps
 
@@ -61,9 +54,9 @@ You have access to these key locations and tools:
 
 After the user describes the issue:
 
-1. **Read any provided context** (plan or ticket file):
+1. **Read any provided context** (plan, file paths, error output):
    - Understand what they're implementing/testing
-   - Note which phase or step they're on
+   - Note which component is affected
    - Identify expected vs actual behavior
 
 2. **Quick state check**:
@@ -71,42 +64,56 @@ After the user describes the issue:
    - Any uncommitted changes
    - When the issue started occurring
 
-### Step 2: Investigate the Issue
+### Step 2: Investigate by Component
 
-Spawn parallel Task agents for efficient investigation:
-
-```
-Task 1 - Check Recent Logs:
-Find and analyze the most recent logs for errors:
-1. Find latest daemon log: ls -t ~/.humanlayer/logs/daemon-*.log | head -1
-2. Find latest WUI log: ls -t ~/.humanlayer/logs/wui-*.log | head -1
-3. Search for errors, warnings, or issues around the problem timeframe
-4. Note the working directory (first line of log)
-5. Look for stack traces or repeated errors
-Return: Key errors/warnings with timestamps
-```
+Spawn parallel Task agents for efficient investigation based on the affected component:
 
 ```
-Task 2 - Database State:
-Check the current database state:
-1. Connect to database: sqlite3 ~/.humanlayer/daemon.db
-2. Check schema: .tables and .schema for relevant tables
-3. Query recent data:
-   - SELECT * FROM sessions ORDER BY created_at DESC LIMIT 5;
-   - SELECT * FROM conversation_events WHERE created_at > datetime('now', '-1 hour');
-   - Other queries based on the issue
-4. Look for stuck states or anomalies
-Return: Relevant database findings
+Task 1 - API Issues (if API-related):
+1. Check recent changes to apps/api/
+2. Look for error patterns in route handlers
+3. Verify database migrations: check apps/api/alembic/
+4. Run API tests: cd apps/api && pytest
+5. Check middleware, auth, and error handling
+Return: Key errors and relevant file:line references
 ```
 
 ```
-Task 3 - Git and File State:
-Understand what changed recently:
-1. Check git status and current branch
-2. Look at recent commits: git log --oneline -10
-3. Check uncommitted changes: git diff
+Task 2 - Pipeline Stage Issues (if pipeline-related):
+1. Identify which stage failed (Extract/Cleanse/Transform/Validate/Load/Notify)
+2. Check stage-specific code in packages/pipeline/
+3. Check error taxonomy in packages/schemas/src/models/errors.py
+4. Try reproducing locally:
+   FORUM_ENV=local TENANT_ID=X PIPELINE_ID=Y STAGE=extract python -m pipeline.runner
+5. Run pipeline tests: cd packages/pipeline && pytest
+Return: Stage failure details and relevant code references
+```
+
+```
+Task 3 - Agent Setup Issues (if agent-related):
+1. Review agent orchestrator code in packages/agents/
+2. Check LLM gateway connectivity and configuration
+3. Look at generated Playwright scripts
+4. Check tool registry and sub-agent definitions
+5. Run agent tests: cd packages/agents && pytest
+Return: Agent configuration and error details
+```
+
+```
+Task 4 - Extraction Code Issues (site changed / DOM broken):
+1. Check code artifacts: tenants/{tenant_id}/pipelines/{pipeline_id}/code/v{n}/
+2. Look for DOM selector changes
+3. Check stealth level configuration (None/Basic/Standard/Aggressive)
+4. Review anti-detection settings in packages/browser/
+Return: DOM/selector analysis and stealth configuration
+```
+
+```
+Task 5 - Git and File State:
+1. git status and current branch
+2. git log --oneline -10 for recent commits
+3. git diff for uncommitted changes
 4. Verify expected files exist
-5. Look for any file permission issues
 Return: Git state and any file issues
 ```
 
@@ -122,15 +129,13 @@ Based on the investigation, present a focused debug report:
 
 ### Evidence Found
 
-**From Logs** (`~/.humanlayer/logs/`):
-- [Error/warning with timestamp]
-- [Pattern or repeated issue]
+**From Code Analysis** (`[component directory]`):
+- [Error/pattern found with file:line reference]
+- [Configuration issue or missing dependency]
 
-**From Database**:
-```sql
--- Relevant query and result
-[Finding from database]
-```
+**From Tests**:
+- [Test results and failures]
+- [Missing test coverage]
 
 **From Git/Files**:
 - [Recent changes that might be related]
@@ -142,53 +147,61 @@ Based on the investigation, present a focused debug report:
 ### Next Steps
 
 1. **Try This First**:
-   ```bash
-   [Specific command or action]
-   ```
+   [Specific action or command]
 
 2. **If That Doesn't Work**:
-   - Restart services: `make daemon` and `make wui`
-   - Check browser console for WUI errors
-   - Run with debug: `HUMANLAYER_DEBUG=true make daemon`
+   - Check error taxonomy: packages/schemas/src/models/errors.py
+   - Run all tests: turbo run test
+   - Check infrastructure: cd internal/debug && docker-compose ps
 
 ### Can't Access?
 Some issues might be outside my reach:
 - Browser console errors (F12 in browser)
-- MCP server internal state
-- System-level issues
+- AWS service issues (check CloudWatch)
+- Network/proxy issues during extraction
 
 Would you like me to investigate something specific further?
 ```
 
 ## Important Notes
 
-- **Focus on manual testing scenarios** - This is for debugging during implementation
+- **Focus on the specific component** - Don't investigate everything, narrow down first
 - **Always require problem description** - Can't debug without knowing what's wrong
 - **Read files completely** - No limit/offset when reading context
-- **Think like `commit` or `describe_pr`** - Understand git state and changes
-- **Guide back to user** - Some issues (browser console, MCP internals) are outside reach
+- **Use the error taxonomy** - Check `packages/schemas/src/models/errors.py` for known error types
+- **Guide back to user** - Some issues (browser console, AWS, live infrastructure) are outside reach
 - **No file editing** - Pure investigation only
 
 ## Quick Reference
 
-**Find Latest Logs**:
+**Run Tests**:
 ```bash
-ls -t ~/.humanlayer/logs/daemon-*.log | head -1
-ls -t ~/.humanlayer/logs/wui-*.log | head -1
+turbo run test          # All packages
+cd apps/api && pytest   # API only
+cd packages/pipeline && pytest  # Pipeline only
+cd packages/agents && pytest    # Agents only
+cd apps/web && npm test         # Frontend only
 ```
 
-**Database Queries**:
+**Local Pipeline Stage**:
 ```bash
-sqlite3 ~/.humanlayer/daemon.db ".tables"
-sqlite3 ~/.humanlayer/daemon.db ".schema sessions"
-sqlite3 ~/.humanlayer/daemon.db "SELECT * FROM sessions ORDER BY created_at DESC LIMIT 5;"
+FORUM_ENV=local TENANT_ID=acme PIPELINE_ID=pip_cme STAGE=extract python -m pipeline.runner
+FORUM_ENV=local TENANT_ID=acme PIPELINE_ID=pip_cme STAGE=all python -m pipeline.runner
 ```
 
-**Service Check**:
+**Internal CLI** (if available):
 ```bash
-ps aux | grep hld     # Is daemon running?
-ps aux | grep wui     # Is WUI running?
+forum-internal pipeline runs --tenant X --pipeline Y --last 10
+forum-internal pipeline logs --tenant X --run run_abc
+forum-internal trace view --run run_abc
+forum-internal replay --run run_abc
+forum-internal code pull --tenant X --pipeline Y
 ```
+
+**Error Taxonomy**: `packages/schemas/src/models/errors.py`
+- SOURCE_UNAVAILABLE, ACCESS_BLOCKED, SCHEMA_MISMATCH, etc.
+
+**Code Artifacts**: `tenants/{tenant_id}/pipelines/{pipeline_id}/code/v{n}/`
 
 **Git State**:
 ```bash
@@ -196,5 +209,3 @@ git status
 git log --oneline -10
 git diff
 ```
-
-Remember: This command helps you investigate without burning the primary window's context. Perfect for when you hit an issue during manual testing and need to dig into logs, database, or git state.

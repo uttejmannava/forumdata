@@ -9,8 +9,8 @@ You are tasked with generating a comprehensive pull request description followin
 ## Steps to follow:
 
 1. **Read the PR description template:**
-   - First, check if `thoughts/shared/pr_description.md` exists
-   - If it doesn't exist, inform the user that their `humanlayer thoughts` setup is incomplete and they need to create a PR description template at `thoughts/shared/pr_description.md`
+   - Read the PR description template at `.github/PULL_REQUEST_TEMPLATE.md`
+   - If it doesn't exist, use a sensible default template with sections for: problem, changes, implementation, verification, changelog
    - Read the template carefully to understand all sections and requirements
 
 
@@ -41,7 +41,7 @@ You are tasked with generating a comprehensive pull request description followin
 6. **Handle verification requirements:**
    - Look for any checklist items in the "How to verify it" section of the template
    - For each verification step:
-     - If it's a command you can run (like `make check test`, `npm test`, etc.), run it
+     - If it's a command you can run (like `turbo run test`, `pytest`, `npm test`, etc.), run it
      - If it passes, mark the checkbox as checked: `- [x]`
      - If it fails, keep it unchecked and note what failed: `- [ ]` with explanation
      - If it requires manual testing (UI interactions, external services), leave unchecked and note for user
@@ -56,9 +56,8 @@ You are tasked with generating a comprehensive pull request description followin
      - Write a concise changelog entry
    - Ensure all checklist items are addressed (checked or explained)
 
-8. **Save and sync the description:**
+8. **Save the description:**
    - Write the completed description to `thoughts/shared/prs/{number}_description.md`
-   - Run `humanlayer thoughts sync` to sync the thoughts directory
    - Show the user the generated description
 
 9. **Update the PR:**

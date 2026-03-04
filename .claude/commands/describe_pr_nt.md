@@ -21,7 +21,7 @@ You are tasked with generating a comprehensive pull request description followin
 
         ## How to verify it
 
-        ### Manual Testing
+        - [ ] I have ensured `turbo run test && turbo run lint` passes
 
         ## Description for the changelog
         ```
@@ -34,7 +34,7 @@ You are tasked with generating a comprehensive pull request description followin
    - Ask the user which PR they want to describe
 
 3. **Check for existing description:**
-   - Check if `/tmp/{repo_name}/prs/{number}_description.md` already exists
+   - Check if `thoughts/shared/prs/{number}_description.md` already exists
    - If it exists, read it and inform the user you'll be updating it
    - Consider what has changed since the last description was written
 
@@ -55,7 +55,7 @@ You are tasked with generating a comprehensive pull request description followin
 6. **Handle verification requirements:**
    - Look for any checklist items in the "How to verify it" section of the template
    - For each verification step:
-     - If it's a command you can run (like `make check test`, `npm test`, etc.), run it
+     - If it's a command you can run (like `turbo run test`, `pytest`, `npm test`, etc.), run it
      - If it passes, mark the checkbox as checked: `- [x]`
      - If it fails, keep it unchecked and note what failed: `- [ ]` with explanation
      - If it requires manual testing (UI interactions, external services), leave unchecked and note for user
@@ -71,11 +71,11 @@ You are tasked with generating a comprehensive pull request description followin
    - Ensure all checklist items are addressed (checked or explained)
 
 8. **Save and sync the description:**
-   - Write the completed description to `/tmp/{repo_name}/prs/{number}_description.md`
+   - Write the completed description to `thoughts/shared/prs/{number}_description.md`
    - Show the user the generated description
 
 9. **Update the PR:**
-   - Update the PR description directly: `gh pr edit {number} --body-file /tmp/{repo_name}/prs/{number}_description.md`
+   - Update the PR description directly: `gh pr edit {number} --body-file thoughts/shared/prs/{number}_description.md`
    - Confirm the update was successful
    - If any verification steps remain unchecked, remind the user to complete them before merging
 
