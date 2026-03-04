@@ -1,23 +1,11 @@
 {
   "permissions": {
     "allow": [
-      // Read-only operations — no approval needed
       "Edit",
       "Write",
       "Read",
       "Glob",
       "Grep",
-
-      // Common dev commands
-      
-      // Protect specific files from edits
-      "Edit(**/.env)",
-      "Edit(**/.env.*)",
-      "Edit(**/secrets/**)",
-      "Edit(**/*.pem)",
-      "Edit(**/*.key)",
-      "Edit(**/terraform.tfstate*)",
-      "Edit(**/infra/terraform/environments/prod/**)",
       "Bash(pytest *)",
       "Bash(python -m pytest *)",
       "Bash(python -m pipeline.runner *)",
@@ -32,8 +20,6 @@
       "Bash(git log *)",
       "Bash(git branch *)",
       "Bash(forum-internal *)",
-
-      // File operations
       "Bash(cat *)",
       "Bash(ls *)",
       "Bash(find *)",
@@ -42,14 +28,18 @@
       "Bash(wc *)"
     ],
     "deny": [
-      // Protect secrets and sensitive config
       "Read(**/.env)",
       "Read(**/.env.*)",
       "Read(**/secrets/**)",
       "Read(**/*.pem)",
       "Read(**/*.key)",
-
-      // Block destructive infra commands
+      "Edit(**/.env)",
+      "Edit(**/.env.*)",
+      "Edit(**/secrets/**)",
+      "Edit(**/*.pem)",
+      "Edit(**/*.key)",
+      "Edit(**/terraform.tfstate*)",
+      "Edit(**/infra/terraform/environments/prod/**)",
       "Bash(terraform apply *)",
       "Bash(terraform destroy *)",
       "Bash(aws * delete-*)",
