@@ -2,11 +2,22 @@
   "permissions": {
     "allow": [
       // Read-only operations — no approval needed
+      "Edit",
+      "Write",
       "Read",
       "Glob",
       "Grep",
 
       // Common dev commands
+      
+      // Protect specific files from edits
+      "Edit(**/.env)",
+      "Edit(**/.env.*)",
+      "Edit(**/secrets/**)",
+      "Edit(**/*.pem)",
+      "Edit(**/*.key)",
+      "Edit(**/terraform.tfstate*)",
+      "Edit(**/infra/terraform/environments/prod/**)",
       "Bash(pytest *)",
       "Bash(python -m pytest *)",
       "Bash(python -m pipeline.runner *)",
