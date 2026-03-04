@@ -166,7 +166,7 @@ Not every source needs the same level of anti-detection. A government CSV downlo
 | Level | Countermeasures Active | Use When |
 |-------|----------------------|----------|
 | **None** | `curl_cffi` HTTP with browser-grade TLS fingerprint (JA3/JA4 impersonation), HTTP/3 support, stealthy headers, no browser | Public APIs, direct file downloads, permissive `robots.txt`, API Discovery mode, Monitor Pipelines |
-| **Basic** | Headless browser with default settings, datacenter proxy, resource blocking (fonts/images/stylesheets stripped) | Government portals, exchange sites with no anti-bot |
+| **Basic** | Headless browser with default settings, datacenter proxy, resource blocking (fonts/images/stylesheets stripped), tab pooling | Government portals, exchange sites with no anti-bot |
 | **Standard** | TLS spoofing, device profiles, basic behavioral patterns, residential proxy | Sites with standard Cloudflare/Akamai protection |
 | **Aggressive** | All 4 layers active: TLS spoofing, cohort profiles, full behavioral simulation, session warming, persistent profiles, residential proxy with geo-match | Sites with advanced anti-bot (DataDome, PerimeterX, custom solutions) |
 
@@ -332,7 +332,7 @@ These methods can be combined: `find_by_text` locates one known value → `find_
 
 **How tiers interact with the agent's semantic understanding:** Tiers 2-3 are structural — they match by DOM shape and text content, not meaning. They handle ~70% of breakages (the common case: class renames, minor layout tweaks, wrapper changes). But when a site moves settlement prices from a `<table>` to a completely different `<div>` layout, structural methods can't bridge the semantic gap. That's where Tier 4's LLM reasoning adds value — it understands that "this grid of numbers labeled 'Settlement' is the same data as the old table." The tiers are complementary: fast/deterministic for common changes, LLM for rare structural overhauls.
 
-**Cost impact:** In production, Tier 1 handles ~85% of runs, Tier 2 handles ~10%, Tier 3 handles ~3%, Tier 4 handles ~2%. Self-healing LLM costs drop ~90% compared to going straight to LLM regeneration on any selector failure. Expected self-healing cost per pipeline drops from ~$0.15-0.20/event to ~$0.01-0.02/event on average (since most "events" are resolved at Tier 2-3 for free).
+**Cost impact:** In production, Tier 1 handles ~85% of runs, Tier 2 handles ~10%, Tier 3 handles ~3%, Tier 4 handles ~2%. Self-healing LLM costs drop ~85% compared to going straight to LLM regeneration on any selector failure. Expected self-healing cost per pipeline drops from ~$0.15-0.20/event to ~$0.01-0.02/event on average (since most "events" are resolved at Tier 2-3 for free).
 
 **Source grounding integration:** The resolution tier used to find each element is recorded in the source grounding metadata (§12.1 Layer 3a). The `extraction_method` field now tracks: `direct_selector`, `fingerprint_match`, `content_match`, `similarity_match`, or `llm_relocation`. Higher tiers produce lower confidence scores — a value found via `direct_selector` scores 0.95+, while `llm_relocation` scores 0.7-0.85 (still good, but flagged for review).
 
@@ -601,15 +601,21 @@ S3: forum-data/tenants/acme/
   └── pipelines/
       ├── pip_cme_settlements/
       │   ├── code/
-      │   │   ├── v1/extract.py        ← Agent-generated Playwright extraction logic
-      │   │   ├── v2/extract.py        ← Updated after self-healing
+      │   │   ├── v1/
+      │   │   │   ├── extract.py       ← Agent-generated Playwright extraction logic
+      │   │   │   ├── transform.py     ← Transform functions
+      │   │   │   └── metadata.json    ← { author, created_at, note }
+      │   │   ├── v2/
+      │   │   │   ├── extract.py       ← Updated after self-healing
+      │   │   │   ├── transform.py
+      │   │   │   └── metadata.json
       │   │   └── latest → v2
-      │   ├── transforms/
-      │   │   └── transform.py         ← Type casting, normalization rules
       │   ├── schema/
       │   │   ├── v1.json
       │   │   └── v2.json
-      │   └── config.json              ← Schedule, destination, notifications, metadata
+      │   ├── config.json              ← Schedule, destination, notifications, metadata
+      │   └── debug/
+      │       └── traces/              ← Playwright trace files from failed runs
 ```
 
 Orchestration definitions are auto-generated from pipeline config and are thin wrappers:
@@ -1025,7 +1031,7 @@ Plausibility checks compare each extraction's statistical properties against a r
 | **Null rate spike** | Fields that are normally 100% populated now show 40% nulls — partial page render or DOM restructure |
 | **Format consistency** | Date field switching from `YYYY-MM-DD` to `MM/DD/YYYY` — source changed format or geo-specific rendering |
 
-Plausibility failures generate the `PLAUSIBILITY_FAILED` warning (non-critical) or `PLAUSIBILITY_BLOCKED` error (critical, configurable). For trading pipelines, plausibility failures should default to blocking — flag the run for manual review rather than silently loading suspect data.
+Plausibility failures generate the `PLAUSIBILITY_WARNING` warning (non-critical) or `PLAUSIBILITY_BLOCKED` error (critical, configurable). For trading pipelines, plausibility failures should default to blocking — flag the run for manual review rather than silently loading suspect data.
 
 **Layer 3b — User-Defined Validation Rules:** Domain-specific rules configured per-pipeline by the analyst. These complement the system's automatic quality checks with business logic:
 
@@ -1048,7 +1054,7 @@ Self-healing uses the Tiered Element Resolution cascade (§5.6) to resolve break
 1. **Change Detected** — structural diff exceeds threshold, extraction code fails, selector returns unexpected results, or data quality check fails
 2. **Tiered Resolution Attempt** — the pipeline runner runs the resolution cascade (§5.6) inline during extraction:
    - **Tier 1** (direct selector) already failed — that's how we got here
-   - **Tier 2** (adaptive fingerprint match) — load stored element fingerprint, score all page elements for structural similarity. If a high-confidence match is found (score ≥0.8), use it, update the selector in the extraction code, save the new fingerprint, and continue the run. Log as `SELF_HEALED_FINGERPRINT`.
+   - **Tier 2** (adaptive fingerprint match) — load stored element fingerprint, score all page elements for structural similarity. If a high-confidence match is found (score ≥0.9), use it, update the selector in the extraction code, save the new fingerprint, and continue the run. Log as `SELF_HEALED_FINGERPRINT`.
    - **Tier 3** (content & similarity search) — try `find_by_text` with known values from the last successful extraction, `find_by_regex` with value patterns from the schema (e.g., price format), and `find_similar` from any partially matched elements. If successful, generate a new selector via `generate_selector`, update extraction code, and continue. Log as `SELF_HEALED_CONTENT`.
    - **Tier 2-3 successes** create a new code version (immutable, as always) with `author: "system:auto-resolve"` and auto-promote it. No LLM cost incurred.
 3. **LLM Code Regeneration (Tier 4)** — if Tiers 2-3 fail, trigger the Extraction Agent to re-analyze the changed page and generate new extraction code targeting the same schema. The agent receives the failure context from Tiers 2-3 (what was tried, why it failed) to focus its analysis.
@@ -1088,6 +1094,8 @@ Formal, machine-readable error codes exposed in the API. Trading clients integra
 | `PLAUSIBILITY_WARNING` | Statistical plausibility check flagged anomalies (row count shift, distribution drift) but within warn threshold |
 | `DETECTION_SIGNAL` | Anti-bot detection signal encountered (throttling, soft block) — stealth level was auto-escalated |
 
+**Internal log codes (not API-exposed):** `SELF_HEALED_FINGERPRINT` and `SELF_HEALED_CONTENT` (from §12.2 Tier 2-3 resolution) are internal log entries recorded per-run for observability. They are not exposed as API warning codes — successful self-healing is transparent to the consumer. The run status remains `COMPLETED` with no warnings unless confidence is medium/low.
+
 **API response structure:**
 ```json
 {
@@ -1120,7 +1128,7 @@ Change detection is a first-class pipeline type, not just a monitoring layer on 
 
 | Type | Description | Per-Run Cost |
 |------|-------------|-------------|
-| **Extraction Pipeline** | Full extract → transform → validate → load cycle. Produces structured data. | Standard (2 credits/row) |
+| **Extraction Pipeline** | Full E-C-T-V-L-N cycle (extract → cleanse → transform → validate → load → notify). Produces structured data. | Standard (2 credits/row) |
 | **Monitor Pipeline** | Lightweight page fetch → structural/content hash comparison → alert on change. No structured extraction. | Reduced (1 credit/check) |
 | **Hybrid Pipeline** | Monitor on every run (cheap), trigger full extraction only when change is detected. | Monitor cost + extraction cost when triggered |
 
@@ -1203,6 +1211,10 @@ POST   /v1/compliance/check             Pre-check source URL
 GET    /v1/pipelines/{id}/health        Health check & metrics
 GET    /v1/alerts                       Active alerts
 WS     /v1/ws/pipelines/{id}            Real-time pipeline status
+
+# Future endpoints (not in MVP):
+GET    /v1/pipelines/{id}/code          View generated extraction code (Phase 3, see §15.3)
+POST   /v1/crawl                        Website crawling for LLM-ready markdown (Phase 4, see §15.2)
 ```
 
 ### 13.2 SDKs
@@ -1299,7 +1311,7 @@ Formatting rules are versioned alongside extraction code in S3. The self-healing
 - **Authentication & Session Management** — Solved via Secrets Manager pattern (see §10), Secret variable type (§5.5)
 - **Backfill & Historical Data** — Specialized logic for date-based pagination, rate limits, resumable crawls (Phase 3)
 - **Browser Extension** — Chrome extension for visual point-and-click element selection (Phase 4)
-- **Data Deduplication** — Content hashing, incremental extraction, change data capture semantics
+- **Data Deduplication** — Content hashing, incremental extraction, change data capture semantics (Phase 2 — basic dedup in Cleanse stage; full incremental extraction in Phase 3)
 - **Tenant Onboarding Automation** — Full control plane: signup → payment → provision → configure → deploy → onboard (Phase 2)
 - **Disaster Recovery** — Cross-region replication, automated backups, S3 Object Lock for audit compliance (Phase 4)
 - **Navigation Mode Tiering** — Solved via tiered navigation modes (§5.4): deterministic modes for simple sources, agentic for complex
@@ -1341,7 +1353,7 @@ Forum's code-generation architecture produces real, auditable extraction code �
 | HTTP Client (non-browser) | `curl_cffi` (JA3/JA4 TLS fingerprint impersonation, HTTP/2, HTTP/3/QUIC) — replaces httpx/requests for all non-browser HTTP calls |
 | Anti-Detection | 4-layer stealth system (network, fingerprint, behavioral, session), adaptive calibration, detection signal monitoring, cohort-based device profiles, resource blocking (fonts/images/stylesheets/tracking domains) |
 | Element Resolution | Tiered cascade: direct selector → adaptive fingerprint match → content/similarity search → LLM semantic relocation. Fingerprints stored in Redis (tenant-scoped) |
-| LLMs | Claude Sonnet 4.5 (code gen), Haiku 4.5 (DOM analysis), Opus 4.5 (complex reasoning) |
+| LLMs | Claude Sonnet 4.5 (code gen), Haiku 4.5 (lightweight analysis: page structure, change detection, data quality), Opus 4.5 (complex reasoning) |
 | Backend API | FastAPI (Python) |
 | Frontend | React + TypeScript |
 | Database | PostgreSQL (RDS), Redis (ElastiCache) |

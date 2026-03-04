@@ -26,7 +26,7 @@ forum/
 │
 ├── packages/
 │   ├── agents/                # All agent code (orchestrator, sub-agents, tool registry)
-│   ├── pipeline/              # The ETV(L)N pipeline runtime
+│   ├── pipeline/              # The E-C-T-V-L-N pipeline runtime
 │   ├── browser/               # Playwright automation, proxy config, anti-detection
 │   ├── schemas/               # Shared types, schema registry logic, validation rules
 │   ├── sdk-python/            # Python SDK (published to PyPI as forum-sdk)
@@ -202,7 +202,7 @@ packages/agents/
 
 The `tools/element.py` module wraps `packages/browser/resolution/` and exposes element resolution capabilities (find_by_text, find_similar, adaptive fingerprint matching, selector auto-generation) as callable tools that agents use during setup. The same resolution engine is also called directly by `packages/pipeline/` at runtime when selectors fail — agents are only invoked at Tier 4 (LLM semantic relocation) after deterministic methods are exhausted.
 
-### 2.5 `packages/pipeline/` — EC-T-V-L-N Pipeline Runtime
+### 2.5 `packages/pipeline/` — E-C-T-V-L-N Pipeline Runtime
 
 The runtime that every ECS Fargate container executes. Pipeline stages run as **E-C-T-V-L-N**: Extract → Cleanse → Transform → Validate → Load → Notify. This is the bridge between agent-generated artifacts and actual data delivery. When MWAA triggers an `EcsRunTaskOperator`, the container starts and runs code from this package.
 
@@ -412,10 +412,10 @@ packages/browser/
 
 | Level | Active Components | Typical Sources |
 |-------|------------------|-----------------|
-| None | `curl_cffi` HTTP with JA3/JA4 TLS impersonation, HTTP/3, stealthy headers (no browser) | Public APIs, direct file downloads, API Discovery, Monitor Pipelines |
-| Basic | Headless browser, datacenter proxy, resource blocking (fonts/images/stylesheets stripped), tab pooling | Government portals, basic exchange sites |
-| Standard | + TLS spoofing, device profiles, basic behavioral patterns, residential proxy | Cloudflare/Akamai protected sites |
-| Aggressive | + Full behavioral simulation, session warming, persistent profiles, referrer chains | DataDome, PerimeterX, custom anti-bot |
+| None | `curl_cffi` HTTP with browser-grade TLS fingerprint (JA3/JA4 impersonation), HTTP/3, stealthy headers (no browser) | Public APIs, direct file downloads, permissive `robots.txt`, API Discovery, Monitor Pipelines |
+| Basic | Headless browser with default settings, datacenter proxy, resource blocking (fonts/images/stylesheets stripped), tab pooling | Government portals, exchange sites with no anti-bot |
+| Standard | + TLS spoofing, device profiles, basic behavioral patterns, residential proxy | Sites with standard Cloudflare/Akamai protection |
+| Aggressive | + Full behavioral simulation, cohort profiles, session warming, persistent profiles, referrer chains, residential proxy with geo-match | Sites with advanced anti-bot (DataDome, PerimeterX, custom solutions) |
 
 ### 2.7 `packages/schemas/` — Shared Types & Schema Logic
 
@@ -516,7 +516,7 @@ YAML templates that `apps/api/services/dag_generator.py` renders when a user cre
 ```
 dags/
 ├── templates/
-│   ├── extraction_pipeline.yaml.j2      # Standard ETV(L)N pipeline
+│   ├── extraction_pipeline.yaml.j2      # Standard E-C-T-V-L-N pipeline
 │   ├── monitor_pipeline.yaml.j2         # Change detection (monitor-only) pipeline
 │   └── hybrid_pipeline.yaml.j2          # Monitor + conditional extraction
 └── examples/
@@ -863,7 +863,7 @@ When an engineer edits code (creates a version with `author: "user:..."`) , the 
 | Object Storage | S3 | `infra/terraform/modules/s3/` | Code artifacts, raw data, audit logs, traces |
 | Auth | Cognito | `infra/terraform/modules/cognito/` | User pools, SSO/SAML |
 | Secrets | Secrets Manager | `infra/terraform/modules/secrets/` | Per-tenant namespaced credentials |
-| Orchestration | MWAA Serverless | `infra/terraform/modules/mwaa/` | Reads YAML DAGs from S3, triggers ECS tasks |
+| Orchestration | MWAA Serverless (Free/Self-Service/Enterprise Base), MWAA Provisioned (Enterprise Dedicated) | `infra/terraform/modules/mwaa/` | Serverless: YAML DAGs from S3, triggers ECS tasks. Provisioned: Python DAGs, full Airflow UI |
 | Monitoring | CloudWatch + X-Ray | `infra/terraform/modules/monitoring/` | Metrics, alarms, tracing |
 
 ---

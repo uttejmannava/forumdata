@@ -13,7 +13,7 @@ apps/api/          → FastAPI backend (pipeline CRUD, auth, billing, compliance
 apps/web/          → React + TypeScript dashboard (Vite)
 apps/site/         → Marketing site (Astro)
 packages/agents/   → LLM orchestrator + sub-agents + tool registry (Python)
-packages/pipeline/ → EC-T-V-L-N runtime executed in ECS Fargate containers (Python)
+packages/pipeline/ → E-C-T-V-L-N runtime executed in ECS Fargate containers (Python)
 packages/browser/  → Playwright automation, anti-detection, proxy management (Python)
 packages/schemas/  → Shared Pydantic models used by API, agents, pipeline, SDKs
 packages/sdk-python/   → Python SDK (PyPI: forum-sdk) + CLI
@@ -29,7 +29,7 @@ Each subdirectory has (or should have) its own CLAUDE.md with package-specific c
 ## Key Concepts
 
 - **Code generation, not black-box LLM extraction.** Agents generate real Playwright scripts during setup. Scheduled runs execute that code deterministically — no LLM calls at runtime.
-- **EC-T-V-L-N pipeline stages:** Extract → Cleanse → Transform → Validate → Load → Notify. The `STAGE` env var controls which stage runs.
+- **E-C-T-V-L-N pipeline stages:** Extract → Cleanse → Transform → Validate → Load → Notify. The `STAGE` env var controls which stage runs.
 - **Code artifacts live in S3** at `tenants/{tenant_id}/pipelines/{pipeline_id}/code/v{n}/`. Every change is immutable and versioned. `latest` pointer determines active version.
 - **Self-healing:** Change Detection Agent monitors for DOM changes → triggers Extraction Agent to regenerate code → validates against historical output → promotes if passing.
 - **Adaptive stealth:** 4 levels (None → Basic → Standard → Aggressive), auto-calibrated per-pipeline during setup, auto-escalated at runtime on detection signals.
