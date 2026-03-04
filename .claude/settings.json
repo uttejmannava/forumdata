@@ -1,13 +1,52 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./hack/spec_metadata.sh)",
-      "Bash(hack/spec_metadata.sh)",
-      "Bash(bash hack/spec_metadata.sh)"
+      // Read-only operations — no approval needed
+      "Read",
+      "Glob",
+      "Grep",
+
+      // Common dev commands
+      "Bash(pytest *)",
+      "Bash(python -m pytest *)",
+      "Bash(python -m pipeline.runner *)",
+      "Bash(npm test *)",
+      "Bash(npm run lint *)",
+      "Bash(npm run type-check *)",
+      "Bash(turbo run test *)",
+      "Bash(turbo run lint *)",
+      "Bash(turbo run type-check *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(forum-internal *)",
+
+      // File operations
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)"
+    ],
+    "deny": [
+      // Protect secrets and sensitive config
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+
+      // Block destructive infra commands
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)",
+      "Bash(aws * delete-*)",
+      "Bash(rm -rf *)"
     ]
   },
-  "enableAllProjectMcpServers": false,
-  "env": {
-    "MAX_THINKING_TOKENS": "32000"
+  "attribution": {
+    "commit": "",
+    "pr": ""
   }
 }
