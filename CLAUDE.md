@@ -1,8 +1,5 @@
 # Forum
 
-@docs/architecture.md
-@docs/bible.md
-
 This file provides guidance to Claude Code when working in this repository.
 
 Forum is an AI-powered alternative data platform for trading and investment firms. Analysts plug in a URL, describe what they need, and agents build self-healing extraction pipelines that deliver structured data on a schedule.

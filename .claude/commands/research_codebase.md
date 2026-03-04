@@ -27,8 +27,11 @@ Then wait for the user's research query.
 
 ## Steps to follow after receiving the research query:
 
-1. **Read any directly mentioned files first:**
-   - If the user mentions specific files (tickets, docs, JSON), read them FULLY first
+1. **Read foundational docs and any directly mentioned files first:**
+   - **ALWAYS** start by reading these two foundational documents in full:
+     - `architecture.md` — system architecture, component design, data flows
+     - `bible.md` — product spec, business rules, domain definitions
+   - If the user mentions additional specific files (tickets, docs, JSON), read them FULLY too
    - **IMPORTANT**: Use the Read tool WITHOUT limit/offset parameters to read entire files
    - **CRITICAL**: Read these files yourself in the main context before spawning any sub-tasks
    - This ensures you have full context before decomposing the research
