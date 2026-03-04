@@ -1,6 +1,0 @@
-{
-  "env": {
-    "FORUM_ENV": "local",
-    "MAX_THINKING_TOKENS": "32000"
-  }
-}
