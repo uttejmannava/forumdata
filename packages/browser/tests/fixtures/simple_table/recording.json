@@ -1,0 +1,17 @@
+{
+  "name": "simple_table",
+  "target_url": "https://test.local/settlements",
+  "interactions": [
+    {
+      "url": "https://test.local/settlements",
+      "method": "GET",
+      "request_headers": {},
+      "response_status": 200,
+      "response_headers": {"content-type": "text/html"},
+      "response_body_b64": "PFwhRE9DVFlQRSBodG1sPgo8aHRtbD4KPGJvZHk+CiAgICA8aDE+U2V0dGxlbWVudCBQcmljZXM8L2gxPgogICAgPHRhYmxlIGlkPSJzZXR0bGVtZW50cyI+CiAgICAgICAgPHRoZWFkPjx0cj48dGg+Q29udHJhY3Q8L3RoPjx0aD5QcmljZTwvdGg+PHRoPlZvbHVtZTwvdGg+PC90cj48L3RoZWFkPgogICAgICAgIDx0Ym9keT4KICAgICAgICAgICAgPHRyIGNsYXNzPSJyb3ciPjx0ZD5DTFoyNTwvdGQ+PHRkIGNsYXNzPSJwcmljZSI+NzIuNDU8L3RkPjx0ZD4xNTIzNDwvdGQ+PC90cj4KICAgICAgICAgICAgPHRyIGNsYXNzPSJyb3ciPjx0ZD5DTEYyNjwvdGQ+PHRkIGNsYXNzPSJwcmljZSI+NzMuMTA8L3RkPjx0ZD44OTIxPC90ZD48L3RyPgogICAgICAgICAgICA8dHIgY2xhc3M9InJvdyI+PHRkPkNMRzI2PC90ZD48dGQgY2xhc3M9InByaWNlIj43My41NTwvdGQ+PHRkPjQ1MTI8L3RkPjwvdHI+CiAgICAgICAgPC90Ym9keT4KICAgIDwvdGFibGU+CjwvYm9keT4KPC9odG1sPg==",
+      "resource_type": "document",
+      "timestamp_ms": 0
+    }
+  ],
+  "metadata": {"description": "Simple HTML table fixture with 3 settlement rows"}
+}
