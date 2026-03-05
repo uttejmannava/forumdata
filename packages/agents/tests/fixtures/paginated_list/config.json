@@ -1,0 +1,6 @@
+{
+  "url": "https://example.com/products?page=1",
+  "name": "paginated_list",
+  "description": "Multi-page product listing with next button pagination",
+  "expected_nav_mode": "PAGINATED_LIST"
+}

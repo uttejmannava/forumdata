@@ -1,0 +1,10 @@
+{
+  "columns": [
+    {"name": "symbol", "type": "STRING", "description": "Ticker symbol", "nullable": false},
+    {"name": "side", "type": "STRING", "description": "Trade direction (BUY/SELL)", "nullable": false},
+    {"name": "quantity", "type": "INTEGER", "description": "Number of shares", "nullable": false},
+    {"name": "price", "type": "FLOAT", "description": "Execution price", "nullable": false},
+    {"name": "timestamp", "type": "STRING", "description": "Trade timestamp ISO 8601", "nullable": false}
+  ],
+  "primary_key": ["symbol", "timestamp"]
+}

@@ -1,0 +1,7 @@
+[
+  {"symbol": "AAPL", "side": "BUY", "quantity": 100, "price": 178.25, "timestamp": "2026-03-04T10:30:00Z"},
+  {"symbol": "MSFT", "side": "SELL", "quantity": 50, "price": 412.80, "timestamp": "2026-03-04T10:31:15Z"},
+  {"symbol": "GOOGL", "side": "BUY", "quantity": 25, "price": 175.50, "timestamp": "2026-03-04T10:32:00Z"},
+  {"symbol": "TSLA", "side": "BUY", "quantity": 200, "price": 185.40, "timestamp": "2026-03-04T10:33:45Z"},
+  {"symbol": "AMZN", "side": "SELL", "quantity": 75, "price": 225.10, "timestamp": "2026-03-04T10:34:30Z"}
+]

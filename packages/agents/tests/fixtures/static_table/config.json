@@ -1,0 +1,6 @@
+{
+  "url": "https://example.com/data",
+  "name": "static_table",
+  "description": "Simple HTML table with product prices",
+  "expected_nav_mode": "SINGLE_PAGE"
+}

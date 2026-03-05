@@ -1,0 +1,8 @@
+[
+  {"indicator": "GDP Growth Rate", "period": "Q4 2025", "value": 2.8, "unit": "%", "change_pct": "+0.3"},
+  {"indicator": "Unemployment Rate", "period": "Feb 2026", "value": 3.9, "unit": "%", "change_pct": "-0.1"},
+  {"indicator": "CPI (All Items)", "period": "Feb 2026", "value": 312.45, "unit": "Index", "change_pct": "+0.2"},
+  {"indicator": "Core CPI", "period": "Feb 2026", "value": 308.12, "unit": "Index", "change_pct": "+0.3"},
+  {"indicator": "10Y Treasury Yield", "period": "Mar 3, 2026", "value": 4.25, "unit": "%", "change_pct": "+0.05"},
+  {"indicator": "Fed Funds Rate", "period": "Mar 2026", "value": 4.50, "unit": "%", "change_pct": "0.0"}
+]

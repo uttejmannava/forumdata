@@ -1,0 +1,11 @@
+{
+  "columns": [
+    {"name": "contract", "type": "STRING", "description": "Futures contract symbol", "nullable": false},
+    {"name": "month", "type": "STRING", "description": "Contract delivery month", "nullable": false},
+    {"name": "settlement_price", "type": "FLOAT", "description": "Daily settlement price", "nullable": false},
+    {"name": "change", "type": "STRING", "description": "Price change from prior day", "nullable": true},
+    {"name": "volume", "type": "INTEGER", "description": "Trading volume", "nullable": true},
+    {"name": "open_interest", "type": "INTEGER", "description": "Open interest", "nullable": true}
+  ],
+  "primary_key": ["contract", "month"]
+}

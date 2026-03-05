@@ -1,0 +1,9 @@
+{
+  "columns": [
+    {"name": "name", "type": "STRING", "description": "Product name", "nullable": false},
+    {"name": "category", "type": "STRING", "description": "Product category", "nullable": false},
+    {"name": "price", "type": "STRING", "description": "Product price", "nullable": false},
+    {"name": "rating", "type": "STRING", "description": "Customer rating", "nullable": true}
+  ],
+  "primary_key": ["name"]
+}

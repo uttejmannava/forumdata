@@ -1,0 +1,6 @@
+{
+  "url": "https://data.example.gov/economic-indicators",
+  "name": "csv_download",
+  "description": "Government data page with downloadable CSV of economic indicators",
+  "expected_nav_mode": "SINGLE_PAGE"
+}

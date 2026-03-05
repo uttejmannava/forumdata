@@ -1,0 +1,6 @@
+{
+  "url": "https://example-exchange.com/settlements",
+  "name": "financial_data",
+  "description": "Exchange settlement prices for futures contracts",
+  "expected_nav_mode": "SINGLE_PAGE"
+}

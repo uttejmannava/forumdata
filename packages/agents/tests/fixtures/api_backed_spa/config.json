@@ -1,0 +1,7 @@
+{
+  "url": "https://example.com/dashboard",
+  "name": "api_backed_spa",
+  "description": "SPA dashboard that loads trade data via JSON API",
+  "expected_nav_mode": "API_DISCOVERY",
+  "api_endpoint": "https://example.com/api/v2/trades"
+}

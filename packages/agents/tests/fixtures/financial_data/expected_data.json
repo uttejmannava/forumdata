@@ -1,0 +1,10 @@
+[
+  {"contract": "CL", "month": "APR 2026", "settlement_price": 72.45, "change": "+0.83", "volume": 285431, "open_interest": 412567},
+  {"contract": "CL", "month": "MAY 2026", "settlement_price": 72.18, "change": "+0.79", "volume": 142890, "open_interest": 298345},
+  {"contract": "CL", "month": "JUN 2026", "settlement_price": 71.95, "change": "+0.75", "volume": 85432, "open_interest": 187654},
+  {"contract": "NG", "month": "APR 2026", "settlement_price": 3.245, "change": "-0.012", "volume": 198765, "open_interest": 345678},
+  {"contract": "NG", "month": "MAY 2026", "settlement_price": 3.312, "change": "-0.008", "volume": 87654, "open_interest": 234567},
+  {"contract": "GC", "month": "APR 2026", "settlement_price": 2145.30, "change": "+12.50", "volume": 156789, "open_interest": 456789},
+  {"contract": "GC", "month": "JUN 2026", "settlement_price": 2158.70, "change": "+12.80", "volume": 78456, "open_interest": 234567},
+  {"contract": "SI", "month": "MAY 2026", "settlement_price": 25.45, "change": "+0.32", "volume": 45678, "open_interest": 123456}
+]

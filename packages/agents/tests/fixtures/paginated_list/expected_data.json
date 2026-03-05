@@ -1,0 +1,12 @@
+[
+  {"name": "Alpha Widget", "category": "Widgets", "price": "$12.99", "rating": "4.5"},
+  {"name": "Beta Gadget", "category": "Gadgets", "price": "$24.50", "rating": "4.2"},
+  {"name": "Gamma Tool", "category": "Tools", "price": "$8.75", "rating": "3.9"},
+  {"name": "Delta Sensor", "category": "Electronics", "price": "$45.00", "rating": "4.8"},
+  {"name": "Epsilon Bolt", "category": "Hardware", "price": "$3.25", "rating": "4.0"},
+  {"name": "Zeta Cable", "category": "Electronics", "price": "$7.99", "rating": "3.5"},
+  {"name": "Eta Mount", "category": "Hardware", "price": "$15.50", "rating": "4.1"},
+  {"name": "Theta Clip", "category": "Hardware", "price": "$2.99", "rating": "3.8"},
+  {"name": "Iota Screen", "category": "Electronics", "price": "$89.99", "rating": "4.6"},
+  {"name": "Kappa Drive", "category": "Electronics", "price": "$55.00", "rating": "4.3"}
+]

@@ -1,0 +1,10 @@
+{
+  "columns": [
+    {"name": "indicator", "type": "STRING", "description": "Economic indicator name", "nullable": false},
+    {"name": "period", "type": "STRING", "description": "Reporting period", "nullable": false},
+    {"name": "value", "type": "FLOAT", "description": "Indicator value", "nullable": false},
+    {"name": "unit", "type": "STRING", "description": "Measurement unit", "nullable": false},
+    {"name": "change_pct", "type": "STRING", "description": "Percent change from prior period", "nullable": true}
+  ],
+  "primary_key": ["indicator", "period"]
+}

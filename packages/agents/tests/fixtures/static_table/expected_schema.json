@@ -1,0 +1,8 @@
+{
+  "columns": [
+    {"name": "product", "type": "STRING", "description": "Product name", "nullable": false},
+    {"name": "price", "type": "STRING", "description": "Product price", "nullable": false},
+    {"name": "stock", "type": "STRING", "description": "Stock status", "nullable": true}
+  ],
+  "primary_key": ["product"]
+}
