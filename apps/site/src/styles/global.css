@@ -1,0 +1,234 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap');
+
+:root {
+  --brand-green: #01ff5e;
+  --bg-main: #0a0a0a;
+  --bg-surface: #141414;
+  --bg-surface-alt: #1a1a1a;
+  --text-primary: #fafafa;
+  --text-muted: #9ca3af;
+  --text-on-primary: #0a0a0a;
+  --border: #374151;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'General Sans', sans-serif;
+  --font-serif: 'Noto Serif', serif;
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-main);
+  color: var(--text-primary);
+}
+
+.landing {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+.content-panel {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4rem;
+  position: relative;
+  z-index: 2;
+  background: var(--bg-surface);
+}
+
+.content-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.terrain-panel {
+  width: 50%;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-logo {
+  position: absolute;
+  top: 2.5rem;
+  left: 4rem;
+  height: 24px;
+}
+
+.headline {
+  font-family: var(--font-serif);
+  font-size: 3.5rem;
+  font-weight: 400;
+  line-height: 1.15;
+  margin-bottom: 1.5rem;
+}
+
+.typewriter-line {
+  display: block;
+  height: 4.1rem;
+}
+
+.flip-text {
+  color: var(--brand-green);
+  display: inline-block;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+
+.flip-text.flip-in {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.flip-text.flip-out {
+  transform: translateY(0.5em);
+  opacity: 0;
+}
+
+.subtitle {
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  max-width: 520px;
+}
+
+.cta-button {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-on-primary);
+  background: var(--brand-green);
+  padding: 0.85rem 2rem;
+  border-radius: 4px;
+  text-decoration: none;
+  margin-bottom: 3rem;
+  transition: opacity 0.2s;
+  align-self: flex-start;
+}
+
+.cta-button:hover {
+  opacity: 0.85;
+}
+
+.social-proof {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.proof-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.proof-label {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.proof-logos {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.proof-logo {
+  height: 32px;
+  width: auto;
+  max-width: 160px;
+  object-fit: contain;
+}
+
+.proof-logo.invert {
+  filter: brightness(0) invert(1);
+}
+
+
+@media (max-width: 768px) {
+  .landing {
+    flex-direction: column;
+    position: relative;
+  }
+
+  .terrain-panel {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .content-panel {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    padding: 1.5rem;
+    background: transparent;
+    align-items: center;
+    justify-content: center;
+    padding-top: 1.5rem;
+  }
+
+  .nav-logo {
+    position: relative;
+    top: auto;
+    left: auto;
+    height: 18px;
+    margin-bottom: 1.5rem;
+    align-self: center;
+  }
+
+  .content-inner {
+    background: rgba(10, 10, 10, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 2rem;
+    backdrop-filter: blur(12px);
+    align-items: center;
+    text-align: center;
+  }
+
+  .content-inner .headline,
+  .content-inner .subtitle {
+    text-align: center;
+  }
+
+  .content-inner .cta-button {
+    align-self: center;
+  }
+
+  .content-inner .social-proof {
+    align-items: center;
+  }
+
+  .content-inner .proof-section {
+    align-items: center;
+  }
+
+  .headline {
+    font-size: 1.8rem;
+  }
+
+  .typewriter-line {
+    height: 2.2rem;
+    white-space: nowrap;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+}
