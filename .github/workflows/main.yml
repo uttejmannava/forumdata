@@ -35,6 +35,8 @@ jobs:
           python-version: "3.12"
       - run: uv sync
       - run: uv run mypy packages/schemas/src
+      - run: uv run mypy packages/agents/src
+      - run: uv run mypy packages/pipeline/src
 
   test:
     name: Test
