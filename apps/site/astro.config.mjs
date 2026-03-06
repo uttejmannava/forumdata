@@ -1,13 +1,8 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
-import node from '@astrojs/node';
 
 export default defineConfig({
-  output: 'server',
-  adapter: node({ mode: 'standalone' }),
+  output: 'static',
   integrations: [react()],
   site: 'https://forumdata.ai',
-  server: {
-    host: '0.0.0.0',
-  },
 });
