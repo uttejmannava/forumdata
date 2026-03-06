@@ -71,6 +71,8 @@ body {
 
 .nav-logo {
   height: 24px;
+  margin-bottom: 2.5rem;
+  align-self: flex-start;
   flex-shrink: 0;
 }
 

@@ -5,8 +5,8 @@ export default function LandingPage() {
   return (
     <div className="landing">
       <div className="content-panel">
-        <img src="/forum_logo.svg" alt="Forum" className="nav-logo" />
         <div className="content-inner">
+          <img src="/forum_logo.svg" alt="Forum" className="nav-logo" />
 
           <h1 className="headline">
             Web data for
