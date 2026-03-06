@@ -27,7 +27,7 @@ export default function TerrainCanvas() {
     const greenR = 1, greenG = 255, greenB = 94;       // #01ff5e
 
     const fadeSpeed = 0.4; // how fast cells fade back per second
-    const flashChance = 0.00005; // probability per cell per frame to flash
+    const targetFlashesPerFrame = 0.15; // constant flash rate regardless of grid size
 
     let cols = 0;
     let rows = 0;
@@ -84,7 +84,8 @@ export default function TerrainCanvas() {
       for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
 
-        // Random chance to flash green
+        // Random chance to flash green — scaled by grid size for consistent rate
+        const flashChance = targetFlashesPerFrame / cells.length;
         if (cell.brightness < 0.1 && Math.random() < flashChance) {
           cell.brightness = 0.7 + Math.random() * 0.3; // flash to 0.7–1.0
         }
