@@ -290,7 +290,7 @@ body {
   }
 
   .headline {
-    font-size: clamp(1.8rem, 7vw, 2.4rem);
+    font-size: clamp(2.2rem, 8vw, 3rem);
   }
 
   .typewriter-line {
