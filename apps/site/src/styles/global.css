@@ -46,7 +46,6 @@ body {
   width: 50%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   padding: clamp(1.5rem, 4vw, 4rem);
   position: relative;
   z-index: 2;
@@ -58,6 +57,8 @@ body {
   display: flex;
   flex-direction: column;
   max-width: 600px;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .terrain-panel {
@@ -195,6 +196,31 @@ body {
   }
 }
 
+/* ── Short viewports (e.g. 1366x768 laptops) ── */
+
+@media (max-height: 750px) {
+  .headline {
+    margin-bottom: 1rem;
+  }
+
+  .subtitle {
+    margin-bottom: 1.25rem;
+  }
+
+  .cta-button {
+    margin-bottom: 1.5rem;
+    padding: 0.65rem 1.5rem;
+  }
+
+  .social-proof {
+    gap: 1rem;
+  }
+
+  .nav-logo {
+    height: 20px;
+  }
+}
+
 /* ── Mobile (≤768px) ── */
 
 @media (max-width: 768px) {
@@ -223,7 +249,6 @@ body {
     padding: 1.5rem;
     background: transparent;
     align-items: center;
-    justify-content: center;
   }
 
   .nav-logo {

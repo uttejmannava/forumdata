@@ -5,4 +5,7 @@ export default defineConfig({
   output: 'static',
   integrations: [react()],
   site: 'https://forumdata.ai',
+  server: {
+    host: '0.0.0.0',
+  },
 });
