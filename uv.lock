@@ -354,11 +354,12 @@ source = { editable = "packages/cli" }
 
 [[package]]
 name = "forum-pipeline"
-version = "0.0.1"
+version = "0.1.0"
 source = { editable = "packages/pipeline" }
 dependencies = [
     { name = "forum-browser" },
     { name = "forum-schemas" },
+    { name = "httpx" },
     { name = "playwright" },
 ]
 
@@ -366,15 +367,18 @@ dependencies = [
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pytest-mock" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "forum-browser", editable = "packages/browser" },
     { name = "forum-schemas", editable = "packages/schemas" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "playwright", specifier = ">=1.49.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25" },
+    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14" },
 ]
 provides-extras = ["dev"]
 
